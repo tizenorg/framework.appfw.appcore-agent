@@ -29,7 +29,6 @@
 #include <unistd.h>
 #include <glib.h>
 
-#include <sysman.h>
 #include "aul.h"
 #include "appcore-agent.h"
 #include <dlog.h>
@@ -361,7 +360,7 @@ static void __vconf_cb(keynode_t *key, void *data)
 	name = vconf_keynode_get_name(key);
 	_ret_if(name == NULL);
 
-	_DBG("[APP %d] vconf changed: %s", _pid, name);
+	SECURE_LOGD("[APP %d] vconf changed: %s", _pid, name);
 
 	for (i = 0; i < sizeof(evtops) / sizeof(evtops[0]); i++) {
 		struct evt_ops *eo = &evtops[i];
@@ -536,7 +535,6 @@ static int __before_loop(struct agent_priv *agent, int argc, char **argv)
 		}
 	}
 	agent->state = AGS_CREATED;
-	sysman_inform_backgrd();
 
 	return 0;
 }

@@ -31,7 +31,7 @@ SET(HEADERS_agent appcore-agent.h
 
 INCLUDE(FindPkgConfig)
 #pkg_check_modules(pkg_agent REQUIRED pmapi vconf sensor aul rua dlog x11)
-pkg_check_modules(pkg_agent REQUIRED aul dlog sysman capi-appfw-application vconf)
+pkg_check_modules(pkg_agent REQUIRED aul dlog capi-appfw-application vconf)
 FOREACH(flag ${pkg_agent_CFLAGS})
 	SET(EXTRA_CFLAGS_agent "${EXTRA_CFLAGS_agent} ${flag}")
 ENDFOREACH(flag)

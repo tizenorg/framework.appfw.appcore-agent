@@ -2,19 +2,17 @@
 Name:       appcore-agent
 Summary:    Agent Application basic
 Version:    1.0
-Release:    8
+Release:    10
 Group:      TO_BE/FILLED_IN
 License:    SAMSUNG
 Source0:    appcore-agent-%{version}.tar.gz
 BuildRequires:  pkgconfig(aul)
 BuildRequires:  pkgconfig(dlog)
-BuildRequires:  pkgconfig(sysman)
 BuildRequires:  pkgconfig(glib-2.0)
 BuildRequires:  pkgconfig(pmapi)
 BuildRequires:  pkgconfig(capi-appfw-application)
 BuildRequires:  pkgconfig(vconf)
 BuildRequires:  cmake
-BuildRequires:  sysman-devel
 
 
 %description
