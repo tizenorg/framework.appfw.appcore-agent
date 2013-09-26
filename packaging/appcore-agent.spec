@@ -39,6 +39,8 @@ make %{?jobs:-j%jobs}
 %install
 rm -rf %{buildroot}
 %make_install
+mkdir -p %{buildroot}/usr/share/license
+cp LICENSE %{buildroot}/usr/share/license/%{name}
 
 
 %post -p /sbin/ldconfig
@@ -51,6 +53,7 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 /usr/lib/libappcore-agent.so.1
 /usr/lib/libappcore-agent.so.1.1
+/usr/share/license/%{name}
 
 %files devel
 %defattr(-,root,root,-)
