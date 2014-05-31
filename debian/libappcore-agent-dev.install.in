@@ -1,0 +1,2 @@
+@PREFIX@/include/appcore-agent/*
+@PREFIX@/lib/pkgconfig/appcore-agent.pc

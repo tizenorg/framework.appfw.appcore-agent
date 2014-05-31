@@ -1,0 +1,13 @@
+# Package Information for pkg-config
+
+prefix=@PREFIX@
+exec_prefix=@EXEC_PREFIX@
+libdir=@LIBDIR@
+includedir=@INCLUDEDIR@
+
+Name: appcore-agent
+Description: SAMSUNG Linux platform application library
+Version: @VERSION@
+Requires: aul dlog capi-appfw-application
+Libs: -L${libdir} -lappcore-agent
+Cflags: -I${includedir} -I${includedir}/appcore-agent

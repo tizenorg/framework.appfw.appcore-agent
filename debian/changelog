@@ -1,0 +1,16 @@
+appcore-agent (1.0-2) unstable; urgency=low
+
+  * Apply service
+  * Git: slp/pkgs/a/appcore-agent
+  * Tag: appcore-agent_1.0-2
+
+ -- Jaeho Lee <jaeho81.lee@samsung.com>  Thu, 23 Feb 2012 15:15:09 +0900
+
+appcore-agent (1.0-1) unstable; urgency=low
+
+  * initial release
+  * Git: slp/pkgs/a/appcore-agent
+  * Tag: appcore-agent_1.0-1
+
+ -- Jaeho Lee <jaeho81.lee@samsung.com>  Tue, 28 Sep 2010 19:19:52 +0900
+
