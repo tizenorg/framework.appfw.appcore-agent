@@ -23,7 +23,7 @@ static void __service_app_terminate(void *data)
 	return;
 }
 
-static void __service_app_service(service_h service, void *data)
+static void __service_app_service(app_control_h app_control, void *data)
 {
 	LOGD("__service_app_service");
 	char *test_data = (char*)data;
@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
 
 	ops.create = (service_app_create_cb)__service_app_create;
 	ops.terminate = (service_app_terminate_cb)__service_app_terminate;
-	ops.service = (service_app_service_cb)__service_app_service;
+	ops.service = (service_app_control_cb)__service_app_service;
 	ops.low_memory = (service_app_low_memory_cb)__service_app_low_memory_cb;
 	ops.low_battery = (service_app_low_battery_cb)__service_app_low_battery_cb;
 

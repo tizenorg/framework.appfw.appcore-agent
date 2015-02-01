@@ -1,16 +1,17 @@
-
 Name:       appcore-agent
 Summary:    Agent Application basic
-Version:    1.0
-Release:    14
+Version:    1.0.4
+Release:    1
 Group:      TO_BE/FILLED_IN
 License:    SAMSUNG
 Source0:    appcore-agent-%{version}.tar.gz
 BuildRequires:  pkgconfig(aul)
 BuildRequires:  pkgconfig(dlog)
-BuildRequires:  pkgconfig(glib-2.0)
-BuildRequires:  pkgconfig(capi-appfw-application)
+BuildRequires:  pkgconfig(ecore)
+BuildRequires:  pkgconfig(capi-appfw-app-control)
+BuildRequires:  pkgconfig(capi-appfw-app-common)
 BuildRequires:  pkgconfig(vconf)
+BuildRequires:  pkgconfig(vconf-internal-keys)
 BuildRequires:  cmake
 
 
@@ -65,6 +66,7 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}
 %files
 %manifest appcore-agent.manifest
 %defattr(-,root,root,-)
+/usr/lib/libappcore-agent.so
 /usr/lib/libappcore-agent.so.1
 /usr/lib/libappcore-agent.so.1.1
 /usr/share/license/%{name}
@@ -72,7 +74,6 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}
 %files devel
 %defattr(-,root,root,-)
 /usr/lib/pkgconfig/appcore-agent.pc
-/usr/lib/libappcore-agent.so
 /usr/include/appcore-agent/appcore-agent.h
 
 %files -n capi-appfw-service-application-devel

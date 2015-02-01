@@ -18,16 +18,14 @@
 #ifndef __TIZEN_APPFW_SERVICE_APP_PRIVATE_H__
 #define __TIZEN_APPFW_SERVICE_APP_PRIVATE_H__
 
-#include <appcore-agent.h>
 #include <service_app.h>
+#include <app_common.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define TIZEN_PATH_MAX 1024
-
-int service_app_error(service_app_error_e error, const char* function, const char *description);
+int service_app_error(app_error_e error, const char* function, const char *description);
 
 #ifdef __cplusplus
 }

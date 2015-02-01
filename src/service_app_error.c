@@ -15,41 +15,40 @@
  */
 
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <libintl.h>
 
 #include <dlog.h>
+#include <app_common.h>
 
-#include <service_app_private.h>
+#include "service_app_private.h"
 
 #ifdef LOG_TAG
 #undef LOG_TAG
 #endif
 
-#define LOG_TAG "TIZEN_N_AGENT"
+#define LOG_TAG "CAPI_APPFW_APPLICATION"
 
-static const char* service_app_error_to_string(service_app_error_e error)
+static const char* service_app_error_to_string(app_error_e error)
 {
 	switch (error)
 	{
-	case SERVICE_APP_ERROR_NONE:
+	case APP_ERROR_NONE:
 		return "NONE";
 
-	case SERVICE_APP_ERROR_INVALID_PARAMETER:
+	case APP_ERROR_INVALID_PARAMETER:
 		return "INVALID_PARAMETER";
 
-	case SERVICE_APP_ERROR_OUT_OF_MEMORY:
+	case APP_ERROR_OUT_OF_MEMORY:
 		return "OUT_OF_MEMORY";
 
-	case SERVICE_APP_ERROR_INVALID_CONTEXT:
+	case APP_ERROR_INVALID_CONTEXT:
 		return "INVALID_CONTEXT";
 
-	case SERVICE_APP_ERROR_NO_SUCH_FILE:
+	case APP_ERROR_NO_SUCH_FILE:
 		return "NO_SUCH_FILE";
 
-	case SERVICE_APP_ERROR_ALREADY_RUNNING:
+	case APP_ERROR_ALREADY_RUNNING:
 		return "ALREADY_RUNNING";
 
 	default :
@@ -57,7 +56,7 @@ static const char* service_app_error_to_string(service_app_error_e error)
 	}
 }
 
-int service_app_error(service_app_error_e error, const char* function, const char *description)
+int service_app_error(app_error_e error, const char* function, const char *description)
 {
 	if (description)
 	{

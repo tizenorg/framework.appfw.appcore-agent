@@ -8,6 +8,6 @@ includedir=${prefix}/include
 Name: appcore-agent
 Description: SAMSUNG Linux platform application library
 Version: 1.1
-Requires: aul dlog capi-appfw-application
+Requires: capi-appfw-app-control capi-appfw-app-common
 Libs: -L${libdir} -lappcore-agent
 Cflags: -I${includedir} -I${includedir}/appcore-agent
