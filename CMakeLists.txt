@@ -23,12 +23,14 @@ SET(CMAKE_SKIP_BUILD_RPATH TRUE)
 # ------------------------------
 SET(APPCORE_AGENT "appcore-agent")
 SET(SRCS_agent src/appcore-agent.c
+		src/service_app_main.c
+		src/service_app_error.c
 		)
-SET(HEADERS_agent appcore-agent.h)
+SET(HEADERS_agent appcore-agent.h
+			service_app.h)
 
 INCLUDE(FindPkgConfig)
-#pkg_check_modules(pkg_agent REQUIRED pmapi vconf sensor aul rua dlog x11)
-pkg_check_modules(pkg_agent REQUIRED aul dlog sysman capi-appfw-application)
+pkg_check_modules(pkg_agent REQUIRED aul dlog capi-appfw-app-control capi-appfw-app-common vconf ecore vconf-internal-keys)
 FOREACH(flag ${pkg_agent_CFLAGS})
 	SET(EXTRA_CFLAGS_agent "${EXTRA_CFLAGS_agent} ${flag}")
 ENDFOREACH(flag)

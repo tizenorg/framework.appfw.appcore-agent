@@ -1,64 +1,76 @@
 #include <stdio.h>
-#include <bundle.h>
 #include <dlog.h>
-#include <appcore-agent.h>
+#include <service_app.h>
 
 #undef LOG_TAG
-#define LOG_TAG "AGENT_TEST"
+#define LOG_TAG "SERVICE_APP_TEST"
 
-static int __app_create(void *data)
+static bool __service_app_create(void *data)
 {
-	/*struct appdata *ad = data; */
-	LOGD("__app_create");
+	LOGD("__service_app_create");
 
 	// Todo: add your code here.
 
-	return 0;
+	return true;
 }
 
-
-static int __app_terminate(void *data)
+static void __service_app_terminate(void *data)
 {
-	/*struct appdata *ad = data; */
-	LOGD("__app_terminate");
+	LOGD("__service_app_terminate");
 
 	// Todo: add your code here.
 
-	return 0;
+	return;
 }
 
-static void __bundle_iterate(const char *key, const char *val, void *data)
+static void __service_app_service(app_control_h app_control, void *data)
 {
-	static int i=0;
-	LOGD("%d %s %s", i++, key, val);
-}
-
-
-static int __app_reset(bundle* b, void *data)
-{
-	/*struct appdata *ad = data; */
+	LOGD("__service_app_service");
 	char *test_data = (char*)data;
 
 	LOGD("requset : %s", test_data);
 
-	bundle_iterate(b, __bundle_iterate, NULL);
+	// Todo: add your code here.
+
+	return;
+}
+
+static void __service_app_low_memory_cb(void *data)
+{
+	LOGD("__service_app_low_memory_cb");
 
 	// Todo: add your code here.
 
-	return 0;
+	service_app_exit();
+
+	return;
+}
+
+static void __service_app_low_battery_cb(void *data)
+{
+	LOGD("__service_app_low_memory_cb");
+
+	// Todo: add your code here.
+
+	service_app_exit();
+
+	return;
 }
 
 int main(int argc, char* argv[])
 {
 	char ad[50] = "test data";
+	service_app_event_callback_s ops;
 
-	struct agentcore_ops ops = {
-		.create = __app_create,
-		.terminate = __app_terminate,
-		.reset = __app_reset,
-	};
+	LOGD("main");
+	memset(&ops, 0x00, sizeof(service_app_event_callback_s));
 
-	ops.data = ad;
+	ops.create = (service_app_create_cb)__service_app_create;
+	ops.terminate = (service_app_terminate_cb)__service_app_terminate;
+	ops.service = (service_app_control_cb)__service_app_service;
+	ops.low_memory = (service_app_low_memory_cb)__service_app_low_memory_cb;
+	ops.low_battery = (service_app_low_battery_cb)__service_app_low_battery_cb;
 
-	appcore_agent_main(argc, argv, &ops);
+	return service_app_main(argc, argv, &ops, ad);
 }
+

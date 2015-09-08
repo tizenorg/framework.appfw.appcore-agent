@@ -28,7 +28,7 @@
 #include <libintl.h>
 #include <bundle.h>
 
-#include "app_service.h"
+#include "app_control.h"
 
 
 #ifdef __cplusplus
@@ -38,20 +38,31 @@ extern "C" {
 struct agentcore_ops {
 	void *data;
 	    /**< Callback data */
-	int (*create) (void *);
-	int (*terminate) (void *);
-	int (*service) (service_h, void *);
+	int (*create) (void *); /**< This callback function is called at the start of the application. */
+	int (*terminate) (void *); /**< This callback function is called once after the main loop of application exits. */
+	int (*app_control) (app_control_h, void *); /**< This callback function is called when other application send the launch request to the application. */
 
 	void *reserved[6];
 		   /**< Reserved */
 };
 
+enum appcore_agent_event {
+	APPCORE_AGENT_EVENT_UNKNOWN,
+		       /**< Unknown event */
+	APPCORE_AGENT_EVENT_LOW_MEMORY,
+			  /**< Low memory */
+	APPCORE_AGENT_EVENT_LOW_BATTERY,
+			   /**< Low battery */
+};
 
 int appcore_agent_main(int argc, char **argv, struct agentcore_ops *ops);
 
 int appcore_agent_terminate();
 
+int appcore_agent_terminate_without_restart();
 
+int appcore_agent_set_event_callback(enum appcore_agent_event event,
+					  int (*cb) (void *, void *), void *data);
 
 #ifdef __cplusplus
 }
