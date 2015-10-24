@@ -27,10 +27,19 @@
 
 #include <appcore-agent.h>
 #include "service_app_private.h"
+#include "service_app_extension.h"
+
+#include <unistd.h>
+
 
 #ifdef LOG_TAG
 #undef LOG_TAG
 #endif
+
+#ifndef TIZEN_PATH_MAX
+#define TIZEN_PATH_MAX 1024
+#endif
+
 
 #define LOG_TAG "CAPI_APPFW_APPLICATION"
 
@@ -40,66 +49,67 @@ typedef enum {
 	SERVICE_APP_STATE_RUNNING, // The application is running in the foreground and background
 } service_app_state_e;
 
-typedef struct {
-	char *package;
-	char *service_app_name;
-	service_app_state_e state;
-	service_app_event_callback_s *callback;
-	void *data;
-} svc_app_context_s;
-
-typedef svc_app_context_s *svc_app_context_h;
-
-static int service_app_create(void *data);
-static int service_app_terminate(void *data);
-static int service_app_reset(app_control_h app_control, void *data);
-static int service_app_low_memory(void *event, void *data);
-static int service_app_low_battery(void *event, void *data);
-
-static void service_app_set_appcore_event_cb(svc_app_context_h service_app_context);
-static void service_app_unset_appcore_event_cb(void);
-
-
-EXPORT_API int svc_app_main(int argc, char **argv, service_app_event_callback_s *callback, void *user_data)
+static int _service_app_get_id(char **id)
 {
-	svc_app_context_s service_app_context = {
-		.state = SERVICE_APP_STATE_NOT_RUNNING,
-		.callback = callback,
-		.data = user_data
-	};
+	static char id_buf[TIZEN_PATH_MAX] = {0, };
+	int ret = -1;
 
-	struct agentcore_ops appcore_context = {
-		.data = &service_app_context,
-		.create = service_app_create,
-		.terminate = service_app_terminate,
-		.app_control = service_app_reset,
-	};
-
-	if (argc <= 0 || argv == NULL || callback == NULL)
+	if (id == NULL)
 	{
 		return service_app_error(APP_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 	}
 
-	if (callback->create == NULL)
+	if (id_buf[0] == '\0')
 	{
-		return service_app_error(APP_ERROR_INVALID_PARAMETER, __FUNCTION__, "service_app_create_cb() callback must be registered");
+		ret = aul_app_get_appid_bypid(getpid(), id_buf, sizeof(id_buf));
+
+		if (ret < 0) {
+			return service_app_error(APP_ERROR_INVALID_CONTEXT, __FUNCTION__, "failed to get the application ID");
+		}
 	}
 
-	if (service_app_context.state != SERVICE_APP_STATE_NOT_RUNNING)
+	if (id_buf[0] == '\0')
 	{
-		return service_app_error(APP_ERROR_ALREADY_RUNNING, __FUNCTION__, NULL);
+		return service_app_error(APP_ERROR_INVALID_CONTEXT, __FUNCTION__, "failed to get the application ID");
 	}
 
-	service_app_context.state = SERVICE_APP_STATE_CREATING;
+	*id = strdup(id_buf);
 
-	appcore_agent_main(argc, argv, &appcore_context);
+	if (*id == NULL)
+	{
+		return service_app_error(APP_ERROR_OUT_OF_MEMORY, __FUNCTION__, NULL);
+	}
 
 	return APP_ERROR_NONE;
 }
 
-EXPORT_API void svc_app_exit(void)
+static int _service_appget_package_app_name(const char *appid, char **name)
 {
-	appcore_agent_terminate();
+	char *name_token = NULL;
+
+	if (appid == NULL)
+	{
+		return service_app_error(APP_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
+	}
+
+	// com.vendor.name -> name
+	name_token = strrchr(appid, '.');
+
+	if (name_token == NULL)
+	{
+		return service_app_error(APP_ERROR_INVALID_CONTEXT, __FUNCTION__, NULL);
+	}
+
+	name_token++;
+
+	*name = strdup(name_token);
+
+	if (*name == NULL)
+	{
+		return service_app_error(APP_ERROR_OUT_OF_MEMORY, __FUNCTION__, NULL);
+	}
+
+	return APP_ERROR_NONE;
 }
 
 EXPORT_API void service_app_exit_without_restart(void)
@@ -107,142 +117,10 @@ EXPORT_API void service_app_exit_without_restart(void)
 	appcore_agent_terminate_without_restart();
 }
 
-int service_app_create(void *data)
-{
-	svc_app_context_h service_app_context = data;
-	service_app_create_cb create_cb;
-
-	if (service_app_context == NULL)
-	{
-		return service_app_error(APP_ERROR_INVALID_CONTEXT, __FUNCTION__, NULL);
-	}
-
-	service_app_set_appcore_event_cb(service_app_context);
-
-	create_cb = service_app_context->callback->create;
-
-	if (create_cb == NULL || create_cb(service_app_context->data) == false)
-	{
-		return service_app_error(APP_ERROR_INVALID_CONTEXT, __FUNCTION__, "service_app_create_cb() returns false");
-	}
-
-	service_app_context->state = SERVICE_APP_STATE_RUNNING;
-
-	return APP_ERROR_NONE;
-}
-
-int service_app_terminate(void *data)
-{
-	svc_app_context_h service_app_context = data;
-	service_app_terminate_cb terminate_cb;
-
-	if (service_app_context == NULL)
-	{
-		return service_app_error(APP_ERROR_INVALID_CONTEXT, __FUNCTION__, NULL);
-	}
-
-	terminate_cb = service_app_context->callback->terminate;
-
-	if (terminate_cb != NULL)
-	{
-		terminate_cb(service_app_context->data);
-	}
-
-	service_app_unset_appcore_event_cb();
-
-	return APP_ERROR_NONE;
-}
-
-
-int service_app_reset(app_control_h app_control, void *data)
-{
-	svc_app_context_h service_app_context = data;
-	service_app_control_cb service_cb;
-
-	if (service_app_context == NULL)
-	{
-		return service_app_error(APP_ERROR_INVALID_CONTEXT, __FUNCTION__, NULL);
-	}
-
-	service_cb = service_app_context->callback->app_control;
-
-	if (service_cb != NULL)
-	{
-		service_cb(app_control, service_app_context->data);
-	}
-
-	return APP_ERROR_NONE;
-}
-
-
-int service_app_low_memory(void *event_info, void *data)
-{
-	svc_app_context_h service_app_context = data;
-	service_app_low_memory_cb low_memory_cb;
-
-	LOGI("service_app_low_memory");
-
-	if (service_app_context == NULL)
-	{
-		return service_app_error(APP_ERROR_INVALID_CONTEXT, __FUNCTION__, NULL);
-	}
-
-	low_memory_cb = service_app_context->callback->low_memory;
-
-	if (low_memory_cb != NULL)
-	{
-		LOGI("service_app_low_memory: service_app_low_memory_cb() is called");
-		low_memory_cb(service_app_context->data);
-	}
-
-	return APP_ERROR_NONE;
-}
-
-int service_app_low_battery(void *event_info, void *data)
-{
-	svc_app_context_h service_app_context = data;
-	service_app_low_battery_cb low_battery_cb;
-
-	LOGI("service_app_low_battery");
-
-	if (service_app_context == NULL)
-	{
-		return service_app_error(APP_ERROR_INVALID_CONTEXT, __FUNCTION__, NULL);
-	}
-
-	low_battery_cb = service_app_context->callback->low_battery;
-
-	if (low_battery_cb != NULL)
-	{
-		LOGI("service_app_low_battery: service_app_low_battery_cb() is called");
-		low_battery_cb(service_app_context->data);
-	}
-
-	return APP_ERROR_NONE;
-}
-
-void service_app_set_appcore_event_cb(svc_app_context_h service_app_context)
-{
-	if (service_app_context->callback->low_memory != NULL)
-	{
-		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_MEMORY, service_app_low_memory, service_app_context);
-	}
-
-	if (service_app_context->callback->low_battery != NULL)
-	{
-		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_BATTERY, service_app_low_battery, service_app_context);
-	}
-}
-
-void service_app_unset_appcore_event_cb(void)
-{
-	appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_MEMORY, NULL, NULL);
-	appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_BATTERY, NULL, NULL);
-}
-
-#define SERVICE_APP_EVENT_MAX 2
+#define SERVICE_APP_EVENT_MAX 6
 static Eina_List *handler_list[SERVICE_APP_EVENT_MAX] = {NULL, };
-static int _initialized = 0;
+static int handler_initialized = 0;
+static int appcore_agent_initialized = 0;
 
 struct app_event_handler {
 	app_event_type_e type;
@@ -270,7 +148,8 @@ static void _free_handler_list(void)
 
 	for (i = 0; i < SERVICE_APP_EVENT_MAX; i++) {
 		EINA_LIST_FREE(handler_list[i], handler)
-			free(handler);
+			if (handler)
+				free(handler);
 	}
 
 	eina_shutdown();
@@ -312,19 +191,139 @@ static int _service_app_low_battery(void *event_info, void *data)
 	return APP_ERROR_NONE;
 }
 
-
-static void _service_app_set_appcore_event_cb(struct service_app_context *app_context)
+static int _service_app_lang_changed(void *event_info, void *data)
 {
-	appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_MEMORY, _service_app_low_memory, app_context);
-	appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_BATTERY, _service_app_low_battery, app_context);
+	Eina_List *l;
+	app_event_handler_h handler;
+	struct app_event_info event;
+
+	LOGI("service_app_lang_changed");
+
+	event.type = APP_EVENT_LANGUAGE_CHANGED;
+	event.value = event_info;
+
+	EINA_LIST_FOREACH(handler_list[APP_EVENT_LANGUAGE_CHANGED], l, handler) {
+		handler->cb(&event, handler->data);
+	}
+
+	return APP_ERROR_NONE;
+}
+
+static int _service_app_region_changed(void *event_info, void *data)
+{
+	Eina_List *l;
+	app_event_handler_h handler;
+	struct app_event_info event;
+
+	if (event_info == NULL) {
+		LOGI("receive empy event, ignore it");
+		return APP_ERROR_NONE;
+	}
+
+	LOGI("service_app_region_changed");
+
+	event.type = APP_EVENT_REGION_FORMAT_CHANGED;
+	event.value = event_info;
+
+	EINA_LIST_FOREACH(handler_list[APP_EVENT_REGION_FORMAT_CHANGED], l, handler) {
+		handler->cb(&event, handler->data);
+	}
+
+	return APP_ERROR_NONE;
+}
+
+static int _service_app_appcore_suspended_state_changed(void *event_info, void *data)
+{
+	Eina_List *l;
+	app_event_handler_h handler;
+	struct app_event_info event;
+
+	LOGI("_service_app_appcore_suspended_state_changed");
+	LOGD("[__SUSPEND__] suspended state: %d (0: suspend, 1: wake)", *(int*)event_info);
+
+	event.type = APP_EVENT_SUSPENDED_STATE_CHANGED;
+	event.value = event_info;
+
+	EINA_LIST_FOREACH(handler_list[APP_EVENT_SUSPENDED_STATE_CHANGED], l, handler) {
+		handler->cb(&event, handler->data);
+	}
+
+	return APP_ERROR_NONE;
+}
+
+static void _service_app_appcore_agent_set_event_cb(app_event_type_e event_type)
+{
+	switch (event_type) {
+	case APP_EVENT_LOW_MEMORY:
+		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_MEMORY, _service_app_low_memory, NULL);
+		break;
+	case APP_EVENT_LOW_BATTERY:
+		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_BATTERY, _service_app_low_battery, NULL);
+		break;
+	case APP_EVENT_LANGUAGE_CHANGED:
+		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LANG_CHANGE, _service_app_lang_changed, NULL);
+		break;
+	case APP_EVENT_REGION_FORMAT_CHANGED:
+		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_REGION_CHANGE, _service_app_region_changed, NULL);
+		break;
+	case APP_EVENT_SUSPENDED_STATE_CHANGED:
+		LOGD("[__SUSPEND__]");
+		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_SUSPENDED_STATE_CHANGE, _service_app_appcore_suspended_state_changed, NULL);
+		break;
+	default:
+		break;
+	}
+}
+
+static void _service_app_appcore_agent_unset_event_cb(app_event_type_e event_type)
+{
+	switch (event_type) {
+	case APP_EVENT_LOW_MEMORY:
+		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_MEMORY, NULL, NULL);
+		break;
+	case APP_EVENT_LOW_BATTERY:
+		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_BATTERY, NULL, NULL);
+		break;
+	case APP_EVENT_LANGUAGE_CHANGED:
+		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LANG_CHANGE, NULL, NULL);
+		break;
+	case APP_EVENT_REGION_FORMAT_CHANGED:
+		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_REGION_CHANGE, NULL, NULL);
+		break;
+	case APP_EVENT_SUSPENDED_STATE_CHANGED:
+		LOGD("[__SUSPEND__]");
+		appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_SUSPENDED_STATE_CHANGE, NULL, NULL);
+		break;
+	default:
+		break;
+	}
+}
+
+static void _service_app_set_appcore_event_cb(void)
+{
+	_service_app_appcore_agent_set_event_cb(APP_EVENT_LOW_MEMORY);
+	_service_app_appcore_agent_set_event_cb(APP_EVENT_LANGUAGE_CHANGED);
+	_service_app_appcore_agent_set_event_cb(APP_EVENT_REGION_FORMAT_CHANGED);
+
+	if (eina_list_count(handler_list[APP_EVENT_LOW_BATTERY]) > 0)
+		_service_app_appcore_agent_set_event_cb(APP_EVENT_LOW_BATTERY);
+
+	if (eina_list_count(handler_list[APP_EVENT_SUSPENDED_STATE_CHANGED]) > 0)
+		_service_app_appcore_agent_set_event_cb(APP_EVENT_SUSPENDED_STATE_CHANGED);
 }
 
 static void _service_app_unset_appcore_event_cb(void)
 {
-	appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_MEMORY, NULL, NULL);
-	appcore_agent_set_event_callback(APPCORE_AGENT_EVENT_LOW_BATTERY, NULL, NULL);
-}
+	_service_app_appcore_agent_unset_event_cb(APP_EVENT_LOW_MEMORY);
+	_service_app_appcore_agent_unset_event_cb(APP_EVENT_LANGUAGE_CHANGED);
+	_service_app_appcore_agent_unset_event_cb(APP_EVENT_REGION_FORMAT_CHANGED);
 
+	if (eina_list_count(handler_list[APP_EVENT_LOW_BATTERY]) > 0)
+		_service_app_appcore_agent_unset_event_cb(APP_EVENT_LOW_BATTERY);
+
+	if (eina_list_count(handler_list[APP_EVENT_SUSPENDED_STATE_CHANGED]) > 0)
+		_service_app_appcore_agent_unset_event_cb(APP_EVENT_SUSPENDED_STATE_CHANGED);
+}
 
 static int _service_app_create(void *data)
 {
@@ -336,7 +335,8 @@ static int _service_app_create(void *data)
 		return service_app_error(APP_ERROR_INVALID_CONTEXT, __FUNCTION__, NULL);
 	}
 
-	_service_app_set_appcore_event_cb(app_context);
+	appcore_agent_initialized = 1;
+	_service_app_set_appcore_event_cb();
 
 	create_cb = app_context->callback->create;
 
@@ -369,7 +369,7 @@ static int _service_app_terminate(void *data)
 
 	_service_app_unset_appcore_event_cb();
 
-	if (_initialized)
+	if (handler_initialized)
 		_free_handler_list();
 
 	return APP_ERROR_NONE;
@@ -425,9 +425,24 @@ EXPORT_API int service_app_main(int argc, char **argv, service_app_lifecycle_cal
 		return service_app_error(APP_ERROR_ALREADY_RUNNING, __FUNCTION__, NULL);
 	}
 
+
+	if (_service_app_get_id(&(app_context.package)) == APP_ERROR_NONE)
+	{
+		if (_service_appget_package_app_name(app_context.package, &(app_context.service_app_name)) != APP_ERROR_NONE)
+		{
+			free(app_context.package);
+			app_context.package = NULL;
+		}
+	}
+
 	app_context.state = SERVICE_APP_STATE_CREATING;
 
 	appcore_agent_main(argc, argv, &appcore_context);
+
+	if (app_context.service_app_name)
+		free(app_context.service_app_name);
+	if (app_context.package)
+		free(app_context.package);
 
 	return APP_ERROR_NONE;
 }
@@ -442,29 +457,33 @@ EXPORT_API int service_app_add_event_handler(app_event_handler_h *event_handler,
 	app_event_handler_h handler;
 	Eina_List *l_itr;
 
-	if (!_initialized) {
+	if (!handler_initialized) {
 		eina_init();
-		_initialized = 1;
+		handler_initialized = 1;
 	}
 
 	if (event_handler == NULL || callback == NULL)
-		return service_app_error(APP_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
+		return service_app_error(APP_ERROR_INVALID_PARAMETER, __FUNCTION__, "null parameter");
 
-	if (event_type < APP_EVENT_LOW_MEMORY || event_type > APP_EVENT_LOW_BATTERY)
-		return service_app_error(APP_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
+	if (event_type < APP_EVENT_LOW_MEMORY || event_type > APP_EVENT_SUSPENDED_STATE_CHANGED)
+		return service_app_error(APP_ERROR_INVALID_PARAMETER, __FUNCTION__, "invalid event type");
 
 	EINA_LIST_FOREACH(handler_list[event_type], l_itr, handler) {
 		if (handler->cb == callback)
-			return service_app_error(APP_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
+			return service_app_error(APP_ERROR_INVALID_PARAMETER, __FUNCTION__, "already registered");
 	}
 
 	handler = calloc(1, sizeof(struct app_event_handler));
 	if (!handler)
-		return service_app_error(APP_ERROR_OUT_OF_MEMORY, __FUNCTION__, NULL);
+		return service_app_error(APP_ERROR_OUT_OF_MEMORY, __FUNCTION__, "insufficient memory");
 
 	handler->type = event_type;
 	handler->cb = callback;
 	handler->data = user_data;
+
+	if (appcore_agent_initialized && eina_list_count(handler_list[event_type]) == 0)
+		_service_app_appcore_agent_set_event_cb(event_type);
+
 	handler_list[event_type] = eina_list_append(handler_list[event_type], handler);
 
 	*event_handler = handler;
@@ -482,19 +501,25 @@ EXPORT_API int service_app_remove_event_handler(app_event_handler_h event_handle
 	if (event_handler == NULL)
 		return service_app_error(APP_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
-	if (!_initialized) {
+	if (!handler_initialized) {
 		LOGI("handler list is not initialzed");
 		return APP_ERROR_NONE;
 	}
 
 	type = event_handler->type;
-	if (type < APP_EVENT_LOW_MEMORY || type > APP_EVENT_LOW_BATTERY)
+	if (type < APP_EVENT_LOW_MEMORY
+			|| type > APP_EVENT_REGION_FORMAT_CHANGED
+			|| type == APP_EVENT_DEVICE_ORIENTATION_CHANGED)
 		return service_app_error(APP_ERROR_INVALID_PARAMETER, __FUNCTION__, NULL);
 
 	EINA_LIST_FOREACH_SAFE(handler_list[type], l_itr, l_next, handler) {
 		if (handler == event_handler) {
 			free(handler);
 			handler_list[type] = eina_list_remove_list(handler_list[type], l_itr);
+
+			if (appcore_agent_initialized && eina_list_count(handler_list[type]) == 0)
+				_service_app_appcore_agent_unset_event_cb(type);
+
 			return APP_ERROR_NONE;
 		}
 	}

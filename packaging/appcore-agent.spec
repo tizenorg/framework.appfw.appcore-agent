@@ -7,17 +7,32 @@ License:    Apache-2.0
 Source0:    appcore-agent-%{version}.tar.gz
 BuildRequires:  pkgconfig(aul)
 BuildRequires:  pkgconfig(dlog)
+BuildRequires:  pkgconfig(dbus-glib-1)
 BuildRequires:  pkgconfig(ecore)
 BuildRequires:  pkgconfig(capi-appfw-app-control)
 BuildRequires:  pkgconfig(capi-appfw-app-common)
 BuildRequires:  pkgconfig(vconf)
 BuildRequires:  pkgconfig(vconf-internal-keys)
+BuildRequires:  pkgconfig(appcore-common)
+BuildRequires:  pkgconfig(dbus-1)
+BuildRequires:  pkgconfig(bundle)
 BuildRequires:  cmake
 
 
 %description
 SLP agent application basic
 
+%if "%{?tizen_profile_name}" == "wearable"
+%define appfw_feature_background_management 1
+%else
+%if "%{?tizen_profile_name}" == "mobile"
+%define appfw_feature_background_management 1
+%else
+%if "%{?tizen_profile_name}" == "tv"
+%define appfw_feature_background_management 0
+%endif
+%endif
+%endif
 
 %package devel
 Summary:    appcore agent
@@ -43,8 +58,18 @@ export CFLAGS="$CFLAGS -DTIZEN_DEBUG_ENABLE"
 export CXXFLAGS="$CXXFLAGS -DTIZEN_DEBUG_ENABLE"
 export FFLAGS="$FFLAGS -DTIZEN_DEBUG_ENABLE"
 %endif
+
+%if 0%{?appfw_feature_background_management}
+_APPFW_FEATURE_BACKGROUND_MANAGEMENT=ON
+%endif
+
 export CFLAGS="$CFLAGS -Wall -Werror -Wno-unused-function -Wno-unused-but-set-variable"
-CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" cmake . -DCMAKE_INSTALL_PREFIX=/usr
+CFLAGS="$CFLAGS"
+LDFLAGS="$LDFLAGS"
+
+cmake -DCMAKE_INSTALL_PREFIX=/usr \
+	-D_APPFW_FEATURE_BACKGROUND_MANAGEMENT:BOOL=${_APPFW_FEATURE_BACKGROUND_MANAGEMENT} \
+	.
 
 make %{?jobs:-j%jobs}
 
@@ -78,5 +103,6 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}
 
 %files -n capi-appfw-service-application-devel
 /usr/include/appcore-agent/service_app.h
+/usr/include/appcore-agent/service_app_extension.h
 /usr/lib/pkgconfig/capi-appfw-service-application.pc
 

@@ -18,6 +18,10 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS}")
 
 SET(CMAKE_SKIP_BUILD_RPATH TRUE)
 
+IF(_APPFW_FEATURE_BACKGROUND_MANAGEMENT)
+	ADD_DEFINITIONS("-D_APPFW_FEATURE_BACKGROUND_MANAGEMENT")
+ENDIF(_APPFW_FEATURE_BACKGROUND_MANAGEMENT)
+
 #################################################################
 # Build appcore-agent Library
 # ------------------------------
@@ -27,10 +31,11 @@ SET(SRCS_agent src/appcore-agent.c
 		src/service_app_error.c
 		)
 SET(HEADERS_agent appcore-agent.h
-			service_app.h)
+		  service_app_extension.h
+		  service_app.h)
 
 INCLUDE(FindPkgConfig)
-pkg_check_modules(pkg_agent REQUIRED aul dlog capi-appfw-app-control capi-appfw-app-common vconf ecore vconf-internal-keys)
+pkg_check_modules(pkg_agent REQUIRED aul dlog capi-appfw-app-control capi-appfw-app-common vconf ecore vconf-internal-keys appcore-common bundle dbus-1 dbus-glib-1)
 FOREACH(flag ${pkg_agent_CFLAGS})
 	SET(EXTRA_CFLAGS_agent "${EXTRA_CFLAGS_agent} ${flag}")
 ENDFOREACH(flag)
